@@ -1,11 +1,11 @@
 package com.kiots;
 
-
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.TextNode;
 import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
 import org.jsoup.nodes.Element;
+
+import org.jsoup.select.Elements;
 import java.net.*;
 import java.io.*;
 import java.util.Random;
@@ -20,75 +20,81 @@ public class App
     }
 
     public static void start(){
-        scrapeTopic("wiki/Google");
+        for(int i = 5; i > 0; i--){
+            try{
+                scrapeTopic("wiki/Google");
+
+            }catch(LinkNotFoundException e){
+                System.out.println("link not found, trying again..." + i);
+            }
+
+        }
     }
 
-    public static void scrapeTopic(String url){
+    public static void scrapeTopic(String url) throws LinkNotFoundException{
         String html=getUrl("https://en.wikipedia.org/"+url);
         Document doc = Jsoup.parse(html);
 
-        Element mainContent = doc.select("#content").first();
+        Element mainContent = doc.select("#bodyContent").first();
+
+        // System.out.println(mainContent.toString());
 
         if(mainContent != null){
+
             Elements links = mainContent.select("a[href]");
 
-        if(links.size()==0){
-            System.out.println("no links found at " + url + ". Going back to Google...");
-            scrapeTopic("wiki/Google");
+            if(links.size()==0){
+                throw new LinkNotFoundException("no links on page, or page is malformed...");
 
-        }else{
+            }else{
+                System.out.println("Links found: " + links.size());
 
-            // for(Element link: links){
-            //     String text = link.text();
-            //     String href = link.attr("href");
-            //     System.out.println("text: " + text + ", ");
-            //     System.out.println("href: " + href);
-            // }  
+                //4 second pause
+                try{
+                    Thread.sleep(4000);
 
-            System.out.println("-------------------------------------------");
-            int random = generator.nextInt(links.size());
-            System.out.println("random link is: " + links.get(random).text() + ", url is: " + links.get(random).attr("href"));
+                }catch(InterruptedException e){
+                    e.printStackTrace();
+                    System.err.println("err during sleep");
+                }
 
-            String summary = getLinkSummary("https://en.wikipedia.org/" + links.get(random).attr("href"));
-            System.out.println("Summary: " + summary);
+                //print links
+                for(Element link: links){
+                    String text = link.text();
+                    String href = link.attr("href");
+                    System.out.println("text: " + text + ", ");
+                    System.out.println("href: " + href);
+                }  
 
-           
+                System.out.println("-------------------------------------------");
+                //crawl random link
+                int random = generator.nextInt(links.size());
+                System.out.println("random link is: " + links.get(random).text() + ", url is: " + links.get(random).attr("href"));
+                //link summary
+                String summary = getLinkSummary("https://en.wikipedia.org/" + links.get(random).attr("href"));
+                System.out.println("Summary: " + summary);
 
-            try{
-                Thread.sleep(4000);
 
-            }catch(InterruptedException e){
-                e.printStackTrace();
-                System.err.println("err during sleep");
+                //4 second pause
+                try{
+                    Thread.sleep(4000);
+
+                }catch(InterruptedException e){
+                    e.printStackTrace();
+                    System.err.println("err during sleep");
+                }
+
+                scrapeTopic(links.get(random).attr("href"));
+                
             }
-
-            scrapeTopic(links.get(random).attr("href"));
-            // try(BufferedWriter writer = new BufferedWriter(new FileWriter("results.txt"))){
-            //     for(Element link: links){
-            //         String text = link.text();
-            //         String href = link.attr("href");
-            //         writer.write("text: " + text + ", ");
-            //         writer.write("href: " + href);
-            //         writer.write("\n");
-            //     }
-            // }catch(IOException e){
-            //     e.printStackTrace();
-            //     System.out.println("error writing to file");
-            // }
-            
         }
-        }
-        
-
-        // int randomLink = generator.nextInt(links.size());
-        // System.out.println("Random link is: " + links.get(randomLink).toString() + ", at url: " + links.get(randomLink).attr("href"));
     }
 
-    public static String getLinkSummary(String url) {
+    public static String getLinkSummary(String url) throws LinkNotFoundException{
         String html = getUrl(url);
         Document doc = Jsoup.parse(html);
     
-        Element summaryElement = doc.select("#mw-content-text p").first(); // Adjust the selector as needed
+        Element summaryElement = doc.select(".mw-parser-output p").first(); // Adjust the selector as needed
         if (summaryElement != null) {
             StringBuilder summary = new StringBuilder();
             for (TextNode textNode : summaryElement.textNodes()) {
@@ -99,10 +105,11 @@ public class App
         return "No summary found.";
     }
 
-    public static String getUrl(String url){
+    public static String getUrl(String url) throws LinkNotFoundException{
         URL urlObject=null;
         try{
             urlObject=new URL(url);
+
         }catch(MalformedURLException e){
             System.out.println("url is malformed"); 
             return "";
@@ -132,7 +139,8 @@ public class App
                     return getUrl(newUrl);
                 }
             }else if(responseCode == HttpURLConnection.HTTP_NOT_FOUND){
-                scrapeTopic("wiki/Google");
+                throw new LinkNotFoundException("no links on page, or page is malformed...");
+
             }
 
         }catch(IOException e){
